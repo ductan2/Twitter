@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.env
+# đẩy file không cần thiết lên github
+# folder thì có dấu / còn file thì không 
