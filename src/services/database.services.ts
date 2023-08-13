@@ -26,6 +26,9 @@ class DatabaseServices {
   get users() {
     return this.db.collection("users")
   }
+  get refreshToken() {
+    return this.db.collection('refresh_token')
+  }
 }
 
 const databaseServices = new DatabaseServices();
