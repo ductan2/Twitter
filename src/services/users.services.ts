@@ -8,14 +8,14 @@ import { ObjectId } from "mongodb"
 import bcrypt from "bcrypt";
 export default class UserServices {
   private signAccessToken(userId: string) {
-    const expiresIn = '3600';
+
     return signToken({
       payload: {
         userId,
         tokenType: TokenType.AccessToken
       },
       options: {
-        expiresIn: expiresIn,
+        expiresIn: process.env.EXPRESIN_ACCESS_TOKEN,
         algorithm: "RS256"
       }
     })
@@ -27,11 +27,38 @@ export default class UserServices {
         tokenType: TokenType.RefreshToken
       },
       options: {
-        expiresIn: '3600000',
+        expiresIn: process.env.EXPRESIN_REFRESH_TOKEN,
         algorithm: "RS256"
       }
     })
   }
+  private signEmailVerifyToken(user_id: string) {
+    return signToken({
+      payload: {
+        user_id,
+        tokenType: TokenType.EmailVerifyToken
+      },
+      privatekey: process.env.JWT_EMAIL_VERIFY,
+      options: {
+        expiresIn: process.env.EXPRESIN_EMAIL_VERIFY,
+        algorithm: "RS256"
+      }
+    })
+  }
+  private signForgotPasswordToken(userId: string) {
+    return signToken({
+      payload: {
+        userId,
+        tokenType: TokenType.ForgotPassowrd
+      },
+      privatekey: process.env.JWT_FORGOT_PASSWORD,
+      options: {
+        expiresIn: process.env.EXPRESIN_FORGOT_PASSWORD,
+        algorithm: "RS256"
+      }
+    })
+  }
+
   SignAndRefreshToken(userId: string) {
     return Promise.all([
       this.signAccessToken(userId),
@@ -43,15 +70,19 @@ export default class UserServices {
     return Boolean(user) // user !== undefined or null ,it return true otherwise return null
   }
   async register(payload: { name: string, email: string, password: string, date_of_birth: Date }) {
-    const result = await databaseServices.users.insertOne(new User({
+    const user_id = new ObjectId();
+    const email_verify_token = await this.signEmailVerifyToken(user_id.toString());
+    await databaseServices.users.insertOne(new User({
       ...payload,
+      _id: user_id,
+      email_verify_token,
       date_of_birth: new Date(payload.date_of_birth),
       password: hassPassword(payload.password)
     }))
-    const userId = result.insertedId.toString();
-    const [access_token, refresh_token] = await this.SignAndRefreshToken(userId)
 
-    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(userId) }))
+    const [access_token, refresh_token] = await this.SignAndRefreshToken(user_id.toString())
+    console.log("email verify token", email_verify_token)
+    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user_id) }))
     return {
       access_token,
       refresh_token
@@ -81,6 +112,80 @@ export default class UserServices {
       status: 200,
     }
 
+  }
+  async verifyEmail(userId: string) {
+
+    const [token] = await Promise.all([
+      this.SignAndRefreshToken(userId),
+      databaseServices.users.updateOne({
+        _id: new ObjectId(userId)
+      }, {
+        $set: {
+          email_verify_token: '',
+          verify: 1,
+          updated_at: new Date()
+        }
+      })
+    ])
+    const [access_token, refresh_token] = token
+    return {
+      access_token,
+      refresh_token
+    }
+  }
+
+  async resendVerifyEmail(userId: string) {
+    const email_verify_token = await this.signEmailVerifyToken(userId);
+    console.log("resend email", email_verify_token)
+
+    await databaseServices.users.updateOne({
+      _id: new ObjectId(userId)
+    }, {
+      $set: {
+        email_verify_token,
+        update_at: new Date()
+      }
+    })
+  }
+  async forgotPassword(email: string) {
+    const user = await databaseServices.users.findOne({ email });
+    const userId = user?._id;
+
+    const forgot_password_token = await this.signForgotPasswordToken(userId?.toString() as string);
+    await databaseServices.users.updateOne({
+      _id: new ObjectId(userId)
+    }, {
+      $set: {
+        forgot_password_token,
+        update_at: new Date()
+      }
+    })
+    console.log("forgot password token:  ", forgot_password_token);
+    // gửi link có dạng : https://domain/forgot-password?token=token
+    return {
+      message: "Check your email for password reset instructions",
+    }
+  }
+  async resetPassword(userId: string, password: string) {
+    await databaseServices.users.updateOne({
+      _id: new ObjectId(userId),
+    }, {
+      $set: {
+        password: hassPassword(password),
+        forgot_password_token: '',
+        update_at: new Date()
+      }
+    })
+  }
+  async getInfo(userId: string) {
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) }, {
+      projection: {
+        password: 0,
+        email_verify_token: 0,
+        forgot_password_token: 0,
+      }
+    })
+    return user;
   }
 
 }

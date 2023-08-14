@@ -1,9 +1,12 @@
-import { Request, Response, NextFunction } from "express"
+import { Request, Response, NextFunction, RequestHandler } from "express"
+import { JwtPayload } from "jsonwebtoken";
+import { ObjectId } from "mongodb";
+import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services"
 
 const userServices = new UserServices();
 
-export const registerController = async (req: Request, res: Response) => {
+export const registerController: RequestHandler = async (req, res) => {
   const { name, email, password, date_of_birth } = req.body;
   try {
     const result = await userServices.register({ name, email, password, date_of_birth });
@@ -21,9 +24,9 @@ export const registerController = async (req: Request, res: Response) => {
     })
   }
 }
-export const loginController = async (req: Request, res: Response) => {
+export const loginController: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
-
+  
   try {
     const result = await userServices.login({ email, password })
     return res.status(200).json({
@@ -44,7 +47,7 @@ export const loginController = async (req: Request, res: Response) => {
 
 }
 
-export const logoutController = async (req: Request, res: Response) => {
+export const logoutController: RequestHandler = async (req, res) => {
   const { refresh_token } = req.body
   try {
     const result = await userServices.logout(refresh_token)
@@ -55,9 +58,117 @@ export const logoutController = async (req: Request, res: Response) => {
   } catch (error) {
     return res.status(400).json({
       message: "Logout failed!",
-      status: 400
+      status: 400,
+      error
     })
   }
 
 
+}
+
+export const emailVerifyValidator: RequestHandler = async (req, res) => {
+
+  try {
+    const { email_verify_token } = req.body;
+    const token = await databaseServices.users.findOne({ email_verify_token })
+
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(token?._id) });
+    if (!user) {
+      return res.status(404).json({
+        message: "User does not exits!",
+        status: 404,
+      })
+    }
+    userServices.verifyEmail(user._id.toString())
+    return res.json({
+      message: "Email verify successfully",
+      status: 200
+    })
+
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error verifying Email",
+      status: 500,
+      error
+    })
+  }
+}
+
+export const resendVerifyEmailController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload;
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) })
+    if (!user) {
+      return res.status(404).json({
+        message: "User does not exits!",
+        status: 404,
+      })
+    }
+    if (user.verify === 1) {
+      return res.json({
+        message: "User already verified!",
+        status: 200,
+      })
+    }
+    await userServices.resendVerifyEmail(user._id.toString());
+    return res.status(200).json({
+      message: "Resend successfully!",
+      status: 200
+    })
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error verifying Email",
+      status: 500,
+      error
+    })
+  }
+}
+export const forgotPasswordController: RequestHandler = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await userServices.forgotPassword(email?.toString())
+    return res.json(result)
+  } catch (error) {
+    return res.json(error)
+  }
+}
+
+export const verifyForgotPasswordController: RequestHandler = async (req, res) => {
+  return res.json({
+    message: "Password verify successfully!",
+    status: 200
+  })
+}
+export const resetPasswordController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.decoded_forgot_passowd_token as JwtPayload;
+    const { password } = req.body;
+    await userServices.resetPassword(userId, password)
+    return res.status(200).json({
+      message: "Reset password successfully!",
+      status: 200,
+    })
+  } catch (error) {
+    return res.status(404).json({
+      message: "Reset password failed!",
+      status: 404,
+    })
+  }
+}
+
+export const getInfoController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload;
+    console.log("🚀 ~ file: users.controller.ts:162 ~ getInfoController ~ userId:", userId)
+    const data = await userServices.getInfo(userId);
+    return res.json({
+      message: "Get infomation user success",
+      data,
+    });
+  } catch (error) {
+    return res.status(404).json({
+      message: "Get infomation user failed!",
+      status: 404,
+    })
+  }
 }

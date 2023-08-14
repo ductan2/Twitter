@@ -4,7 +4,7 @@ import { RunnableValidationChains } from "express-validator/src/middlewares/sche
 
 
 // sequential processing, stops running validations chain if the previous one fails.
-export const validate = (validation: RunnableValidationChains<ValidationChain>) => {
+export const validate :any= (validation: RunnableValidationChains<ValidationChain>) => {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     await validation.run(req);
     const errorValidation = validationResult(req);
@@ -17,7 +17,6 @@ export const validate = (validation: RunnableValidationChains<ValidationChain>) 
     for (const key in arrayError) {
       simplifiedErrors.push({
         message: arrayError[key].msg,
-        path: arrayError[key].path,
         status:400
       });
     }
