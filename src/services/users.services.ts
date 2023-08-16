@@ -1,4 +1,4 @@
-import User from "~/models/schemas/users.schemas"
+import User, { UpdateInfo, UserVerifyStatus } from "~/models/schemas/users.schemas"
 import databaseServices from "./database.services"
 import { signToken } from "~/utils/jwt"
 import { TokenType } from "~/constants/enums"
@@ -6,13 +6,15 @@ import { hassPassword } from "~/utils/bcrypt"
 import RefreshToken from "~/models/schemas/token.schemas"
 import { ObjectId } from "mongodb"
 import bcrypt from "bcrypt";
+
 export default class UserServices {
-  private signAccessToken(userId: string) {
+  private signAccessToken(userId: string, verify: UserVerifyStatus) {
 
     return signToken({
       payload: {
         userId,
-        tokenType: TokenType.AccessToken
+        tokenType: TokenType.AccessToken,
+        verify
       },
       options: {
         expiresIn: process.env.EXPRESIN_ACCESS_TOKEN,
@@ -20,11 +22,12 @@ export default class UserServices {
       }
     })
   }
-  private signRefreshToken(userId: string) {
+  private signRefreshToken(userId: string, verify: UserVerifyStatus) {
     return signToken({
       payload: {
         userId,
-        tokenType: TokenType.RefreshToken
+        tokenType: TokenType.RefreshToken,
+        verify
       },
       options: {
         expiresIn: process.env.EXPRESIN_REFRESH_TOKEN,
@@ -32,11 +35,12 @@ export default class UserServices {
       }
     })
   }
-  private signEmailVerifyToken(user_id: string) {
+  private signEmailVerifyToken(user_id: string, verify: UserVerifyStatus) {
     return signToken({
       payload: {
         user_id,
-        tokenType: TokenType.EmailVerifyToken
+        tokenType: TokenType.EmailVerifyToken,
+        verify
       },
       privatekey: process.env.JWT_EMAIL_VERIFY,
       options: {
@@ -45,11 +49,12 @@ export default class UserServices {
       }
     })
   }
-  private signForgotPasswordToken(userId: string) {
+  private signForgotPasswordToken(userId: string, verify: UserVerifyStatus) {
     return signToken({
       payload: {
         userId,
-        tokenType: TokenType.ForgotPassowrd
+        tokenType: TokenType.ForgotPassowrd,
+        verify
       },
       privatekey: process.env.JWT_FORGOT_PASSWORD,
       options: {
@@ -59,10 +64,10 @@ export default class UserServices {
     })
   }
 
-  SignAndRefreshToken(userId: string) {
+  SignAndRefreshToken(userId: string, verify: UserVerifyStatus) {
     return Promise.all([
-      this.signAccessToken(userId),
-      this.signRefreshToken(userId), // running in parallel(song song) 
+      this.signAccessToken(userId, verify),
+      this.signRefreshToken(userId, verify), // running in parallel(song song) 
     ])
   }
   async checkEmailExits(email: string) {
@@ -71,7 +76,7 @@ export default class UserServices {
   }
   async register(payload: { name: string, email: string, password: string, date_of_birth: Date }) {
     const user_id = new ObjectId();
-    const email_verify_token = await this.signEmailVerifyToken(user_id.toString());
+    const email_verify_token = await this.signEmailVerifyToken(user_id.toString(), UserVerifyStatus.Unverified);
     await databaseServices.users.insertOne(new User({
       ...payload,
       _id: user_id,
@@ -80,23 +85,24 @@ export default class UserServices {
       password: hassPassword(payload.password)
     }))
 
-    const [access_token, refresh_token] = await this.SignAndRefreshToken(user_id.toString())
+    const [access_token, refresh_token] = await this.SignAndRefreshToken(user_id.toString(), UserVerifyStatus.Unverified)
     console.log("email verify token", email_verify_token)
-    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user_id) }))
+    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user_id), create_at: new Date() }))
     return {
       access_token,
       refresh_token
     }
   };
 
-  async login(payload: { email: string, password: string }) {
-    const { email, password } = payload
+  async login(payload: { email: string, password: string, verify: UserVerifyStatus }) {
+    const { email, password, verify } = payload
+
     const user = await databaseServices.users.findOne({ email })
     const passwordMatch = await bcrypt.compare(password, user?.password);
     if (passwordMatch) {
       const userId = user?._id.toString();
-      const [access_token, refresh_token] = await this.SignAndRefreshToken(userId as string)
-      await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(userId) }))
+      const [access_token, refresh_token] = await this.SignAndRefreshToken(userId as string, verify)
+      await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(userId), create_at: new Date() }))
       return {
         access_token, refresh_token
       }
@@ -116,13 +122,13 @@ export default class UserServices {
   async verifyEmail(userId: string) {
 
     const [token] = await Promise.all([
-      this.SignAndRefreshToken(userId),
+      this.SignAndRefreshToken(userId, UserVerifyStatus.Verified),
       databaseServices.users.updateOne({
         _id: new ObjectId(userId)
       }, {
         $set: {
           email_verify_token: '',
-          verify: 1,
+          verify: UserVerifyStatus.Verified,
           updated_at: new Date()
         }
       })
@@ -135,7 +141,7 @@ export default class UserServices {
   }
 
   async resendVerifyEmail(userId: string) {
-    const email_verify_token = await this.signEmailVerifyToken(userId);
+    const email_verify_token = await this.signEmailVerifyToken(userId, UserVerifyStatus.Unverified);
     console.log("resend email", email_verify_token)
 
     await databaseServices.users.updateOne({
@@ -143,21 +149,21 @@ export default class UserServices {
     }, {
       $set: {
         email_verify_token,
-        update_at: new Date()
+        updated_at: new Date()
       }
     })
   }
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, verify: UserVerifyStatus) {
     const user = await databaseServices.users.findOne({ email });
     const userId = user?._id;
 
-    const forgot_password_token = await this.signForgotPasswordToken(userId?.toString() as string);
+    const forgot_password_token = await this.signForgotPasswordToken(userId?.toString() as string, verify);
     await databaseServices.users.updateOne({
-      _id: new ObjectId(userId)
+      _id: new ObjectId(userId),
     }, {
       $set: {
         forgot_password_token,
-        update_at: new Date()
+        updated_at: new Date()
       }
     })
     console.log("forgot password token:  ", forgot_password_token);
@@ -173,7 +179,7 @@ export default class UserServices {
       $set: {
         password: hassPassword(password),
         forgot_password_token: '',
-        update_at: new Date()
+        updated_at: new Date()
       }
     })
   }
@@ -187,5 +193,15 @@ export default class UserServices {
     })
     return user;
   }
-
+  async updateInfo(userId: string, payload: UpdateInfo) {
+    const _payload = payload.date_of_birth ? { ...payload, date_of_birth: new Date(payload.date_of_birth) } : payload
+    const user = await databaseServices.users.findOneAndUpdate({
+      _id: new ObjectId(userId)
+    }, {
+      $set: {
+        ..._payload, updated_at: new Date()
+      }
+    })
+    return user;
+  }
 }

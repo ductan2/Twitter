@@ -1,6 +1,8 @@
 import express, { RequestHandler } from "express"
-import { emailVerifyValidator, forgotPasswordController, getInfoController, loginController, logoutController, registerController, resendVerifyEmailController, resetPasswordController, verifyForgotPasswordController } from "~/controllers/users.controller";
-import { AccessTokenValidator, EmailVerifyTokenValidator, LoginValidator, RefreshTokenValidator, RegisterValidator, forgotpasswordValidator, resetPasswordValidator, verifyForgotPasswordValidator } from "~/middlewares/users.middlewares";
+import { emailVerifyValidator, forgotPasswordController, getInfoController, loginController, logoutController, registerController, resendVerifyEmailController, resetPasswordController, updateInfoController, verifyForgotPasswordController } from "~/controllers/users.controller";
+import { filterMiddleware } from "~/middlewares/filter.middlewares";
+import { AccessTokenValidator, EmailVerifyTokenValidator, LoginValidator, RefreshTokenValidator, RegisterValidator, forgotpasswordValidator, resetPasswordValidator, updateInfoValidator, verifiedUserValidator, verifyForgotPasswordValidator } from "~/middlewares/users.middlewares";
+import { UpdateInfo } from "~/models/schemas/users.schemas";
 import { validate } from "~/utils/validator";
 
 const router = express.Router();
@@ -27,5 +29,8 @@ router.post('/reset-password', validate(resetPasswordValidator), resetPasswordCo
 
 router.get('/get-info', validate(AccessTokenValidator), getInfoController)
 
+router.patch('/get-info', validate(AccessTokenValidator), verifiedUserValidator as any, validate(updateInfoValidator),
+  filterMiddleware<UpdateInfo>(["avatar", "bio", "cover_photo", "date_of_birth", "location", "name", "username", "website"]),
+  updateInfoController)
 
 export default router;

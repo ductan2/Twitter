@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express"
 import { JwtPayload } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
+import { UserVerifyStatus } from "~/models/schemas/users.schemas";
 import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services"
 
@@ -26,9 +27,12 @@ export const registerController: RequestHandler = async (req, res) => {
 }
 export const loginController: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
-    const result = await userServices.login({ email, password })
+    const user = await databaseServices.users.findOne({ email });
+    const verify = user?.verify
+    console.log("🚀 ~ file: users.controller.ts:34 ~ constloginController:RequestHandler= ~ verify:", verify)
+    const result = await userServices.login(({ email, password, verify }))
     return res.status(200).json({
       message: "Login success!",
       stauts: 200,
@@ -126,7 +130,9 @@ export const resendVerifyEmailController = async (req: Request, res: Response) =
 export const forgotPasswordController: RequestHandler = async (req, res) => {
   try {
     const { email } = req.body;
-    const result = await userServices.forgotPassword(email?.toString())
+    const user = await databaseServices.users.findOne({ email })
+
+    const result = await userServices.forgotPassword(email?.toString(), user?.verify)
     return res.json(result)
   } catch (error) {
     return res.json(error)
@@ -171,4 +177,16 @@ export const getInfoController = async (req: Request, res: Response) => {
       status: 404,
     })
   }
+}
+export const updateInfoController = async (req: Request, res: Response) => {
+  const {userId} = req.decoded_authorization as JwtPayload;
+  console.log("🚀 ~ file: users.controller.ts:183 ~ updateInfoController ~ user_id:", userId)
+  const body = req.body;
+  const result = await userServices.updateInfo(userId, body);
+  return res.json({
+    message: "Update successfully!",
+    status: 200,
+    result
+  });
+
 }

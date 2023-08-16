@@ -1,48 +1,12 @@
-import { Request, Response, NextFunction, RequestHandler } from "express"
-import { ParamSchema, body, checkSchema } from "express-validator"
+import { NextFunction, Request } from "express"
+import { ParamSchema, checkSchema } from "express-validator"
+import { JwtPayload } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
-import { httpStatus } from "~/constants/enums";
+import ErrorWithStatus from "~/constants/enums";
+import { UserVerifyStatus } from "~/models/schemas/users.schemas";
 import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services";
 import { verifyToken } from "~/utils/jwt";
-
-export const LoginValidator = checkSchema({
-  email: {
-    notEmpty: true,
-    isEmail: {
-      errorMessage: "Email is invalid",
-    },
-    trim: true,
-    custom: {
-      options: (async (value) => {
-        const userServices = new UserServices();
-        const result = await userServices.checkEmailExits(value);
-        if (!result) {
-          throw new Error("Email does not exits!")
-        }
-      })
-    }
-  },
-  password: {
-    notEmpty: true,
-    isLength: {
-      options: {
-        min: 6,
-        max: 25,
-      }
-    },
-    isStrongPassword: {
-      options: {
-        minLength: 6,
-        minLowercase: 1,
-        minNumbers: 1,
-        minUppercase: 1,
-        minSymbols: 0
-      },
-      errorMessage: "Password must be at least 6 characters long and contain at least one lowercase letter, one uppercase letter, one digit."
-    }
-  },
-}, ["body"])
 
 const passwordSchema: ParamSchema = {
   notEmpty: true,
@@ -90,19 +54,50 @@ const confirmPasswordSchema: ParamSchema = {
     })
   }
 }
+const nameSchema: ParamSchema = {
+  notEmpty: true,
+  isLength: {
+    options: {
+      min: 5,
+      max: 70,
+    }
+  },
+  trim: true
+}
+const dateOfBirthSchema: ParamSchema = {
+  isISO8601: {
+    options: {
+      strict: true,
+      strictSeparator: true,
+    }
+  }
+}
+const emailSchema: ParamSchema = {
+  notEmpty: true,
+  isEmail: {
+    errorMessage: "Email is invalid",
+  },
+  trim: true,
+  custom: {
+    options: (async (value) => {
+      const userServices = new UserServices();
+      const result = await userServices.checkEmailExits(value);
+      if (!result) {
+        throw new Error("Email does not exits!")
+      }
+    })
+  }
+}
+export const LoginValidator = checkSchema({
+  email: emailSchema,
+  password: passwordSchema,
+}, ["body"])
+
+
 
 
 export const RegisterValidator = checkSchema({
-  name: {
-    notEmpty: true,
-    isLength: {
-      options: {
-        min: 5,
-        max: 70,
-      }
-    },
-    trim: true
-  },
+  name: nameSchema,
   email: {
     notEmpty: true,
     isEmail: {
@@ -118,18 +113,11 @@ export const RegisterValidator = checkSchema({
         }
       })
     }
+
   },
   password: passwordSchema,
   confirmPassword: confirmPasswordSchema,
-  date_of_birth: {
-    isISO8601: {
-      options: {
-        strict: true,
-        strictSeparator: true,
-      }
-    },
-
-  }
+  date_of_birth: dateOfBirthSchema
 }, ["body"])
 
 export const AccessTokenValidator = checkSchema({
@@ -139,7 +127,6 @@ export const AccessTokenValidator = checkSchema({
     },
     custom: {// check access token 
       options: async (value: string, { req }) => {
-        console.log("🚀 ~ file: users.middlewares.ts:143 ~ options: ~ access_token:", value)
         const access_token = value.split(' ')[1];
         if (!access_token || access_token === undefined) throw new Error("Access token is required")
         const decoded_authorization = await verifyToken({ token: access_token });
@@ -159,7 +146,7 @@ export const RefreshTokenValidator = checkSchema({
       options: async (value: string, { req }) => {
         const [decoded_refresh_token, isCheckRefreshToken] = await Promise.all([
           verifyToken({ token: value }),
-          databaseServices.refreshToken.findOne({ token: value })
+          databaseServices.refreshToken.findOne({ token: value, create_at: new Date() })
         ])
         if (isCheckRefreshToken === null) {
           throw new Error("RefreshToken user does not exits!")
@@ -188,24 +175,7 @@ export const EmailVerifyTokenValidator = checkSchema({
 })
 
 export const forgotpasswordValidator = checkSchema({
-  email: {
-    notEmpty: true,
-    isEmail: {
-      errorMessage: "Email is invalid",
-    },
-    trim: true,
-    custom: {
-      options: (async (value: string, { req }) => {
-        const userServices = new UserServices();
-        const user = await userServices.checkEmailExits(value);
-        if (!user) {
-          throw new Error("Email does not exits!")
-        }
-        req.user = user
-        return true;
-      })
-    }
-  },
+  email: emailSchema
 })
 
 export const verifyForgotPasswordValidator = checkSchema({
@@ -226,7 +196,6 @@ export const verifyForgotPasswordValidator = checkSchema({
           throw new Error("User does not exits!")
         }
         if (user.forgot_password_token !== value) {
-          console.log("sao không vô đây");
           throw new Error("Invalid password token!")
         }
         return true;
@@ -263,3 +232,102 @@ export const resetPasswordValidator = checkSchema({
     }
   }
 })
+
+export const verifiedUserValidator = (req: Request, res: Response, next: NextFunction) => {
+  const { verify } = req.decoded_authorization as JwtPayload;
+  if (verify !== UserVerifyStatus.Verified) {
+    return next(new ErrorWithStatus({ message: "User not verified!", status: 403 }))
+  }
+  next();
+}
+
+export const updateInfoValidator = checkSchema({
+  name: {
+    ...nameSchema,
+    optional: true,
+    isEmpty: false,
+  },
+  date_of_birth: {
+    ...dateOfBirthSchema,
+    optional: true,
+  },
+  bio: {
+    optional: true,
+    isString: {
+      errorMessage: "Bio must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 200,
+      },
+      errorMessage: "Bio must be not exceed 200 character"
+    }
+  },
+  location: {
+    optional: true,
+    isString: {
+      errorMessage: "Location must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 200,
+      },
+      errorMessage: "Location must not exceed 200 character"
+    }
+  },
+  website: {
+    optional: true,
+    isString: {
+      errorMessage: "Website must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 200,
+      },
+      errorMessage: "Website must not exceed 200 character"
+    }
+  },
+  username: {
+    optional: true,
+    isString: {
+      errorMessage: "Username must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 50,
+      },
+      errorMessage: "Username must not exceed 50 character"
+    }
+  },
+  avatar: {
+    optional: true,
+    isString: {
+      errorMessage: "Avatar must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 300,
+      },
+      errorMessage: "Avatar must not exceed 300 character"
+    }
+  },
+  cover_photo: {
+    optional: true,
+    isString: {
+      errorMessage: "Cover_photo must be string"
+    },
+    trim: true,
+    isLength: {
+      options: {
+        min: 1, max: 300,
+      },
+      errorMessage: "Cover_photo must not exceed 300 character"
+    }
+  },
+
+}, ["body"])
