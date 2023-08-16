@@ -1,5 +1,8 @@
-import { Db, MongoClient } from "mongodb";
+import { Collection, Db, MongoClient } from "mongodb";
 import dotenv from "dotenv"
+import Follower from "~/models/schemas/follower.schema";
+import User from "~/models/schemas/users.schemas";
+import RefreshToken from "~/models/schemas/token.schemas";
 dotenv.config()
 
 const url = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.hdfborf.mongodb.net/`;
@@ -29,6 +32,14 @@ class DatabaseServices {
   get refreshToken() {
     return this.db.collection('refresh_token')
   }
+
+  get followers() {
+    return this.db.collection("followers")
+  }
+
+  // get followers():Collection<Follower> {
+  //   return this.db.collection("followers")
+  // } ==> nên sử dụng 
 }
 
 const databaseServices = new DatabaseServices();

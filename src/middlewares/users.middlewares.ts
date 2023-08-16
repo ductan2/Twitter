@@ -1,8 +1,9 @@
 import { NextFunction, Request } from "express"
-import { ParamSchema, checkSchema } from "express-validator"
+import { ParamSchema, check, checkSchema } from "express-validator"
 import { JwtPayload } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
-import ErrorWithStatus from "~/constants/enums";
+import ErrorWithStatus from "~/constants/commonType";
+import { REGEX_USERNAME } from "~/constants/regex";
 import { UserVerifyStatus } from "~/models/schemas/users.schemas";
 import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services";
@@ -88,12 +89,11 @@ const emailSchema: ParamSchema = {
     })
   }
 }
+
 export const LoginValidator = checkSchema({
   email: emailSchema,
   password: passwordSchema,
 }, ["body"])
-
-
 
 
 export const RegisterValidator = checkSchema({
@@ -176,7 +176,7 @@ export const EmailVerifyTokenValidator = checkSchema({
 
 export const forgotpasswordValidator = checkSchema({
   email: emailSchema
-})
+}, ["body"])
 
 export const verifyForgotPasswordValidator = checkSchema({
   forgot_password_token: {
@@ -202,7 +202,7 @@ export const verifyForgotPasswordValidator = checkSchema({
       }
     }
   }
-})
+}, ["body"])
 
 export const resetPasswordValidator = checkSchema({
   password: passwordSchema,
@@ -233,7 +233,24 @@ export const resetPasswordValidator = checkSchema({
   }
 })
 
-export const verifiedUserValidator = (req: Request, res: Response, next: NextFunction) => {
+export const changePasswordvalidator = checkSchema({
+  oldPassword: passwordSchema,
+  newPassword: passwordSchema,
+  confirmNewPassword: {
+    ...confirmPasswordSchema,
+    custom: {
+      options: ((value, { req }) => {
+        if (value !== req.body.newPassword) {
+          throw new Error("Confirm new password does not match new password!")
+        }
+        return true;
+      })
+    }
+  }
+
+}, ["body"])
+
+export const verifiedUserValidator: any = (req: Request, res: Response, next: NextFunction) => {
   const { verify } = req.decoded_authorization as JwtPayload;
   if (verify !== UserVerifyStatus.Verified) {
     return next(new ErrorWithStatus({ message: "User not verified!", status: 403 }))
@@ -301,6 +318,18 @@ export const updateInfoValidator = checkSchema({
         min: 1, max: 50,
       },
       errorMessage: "Username must not exceed 50 character"
+    },
+    custom: {
+      options: async (value) => {
+        if (!REGEX_USERNAME.test(value)) {
+          throw new Error("Username invalid!")
+        }
+        const user = await databaseServices.users.findOne({ username: value })
+        if (user) {
+          throw new Error("Username already exits!")
+        }
+
+      }
     }
   },
   avatar: {
@@ -331,3 +360,35 @@ export const updateInfoValidator = checkSchema({
   },
 
 }, ["body"])
+
+export const followValidator = checkSchema({
+  followed_user_id: {
+    custom: {
+      options: async (value) => {
+        if (!ObjectId.isValid(value)) {
+          throw new Error("Follower user id not found")
+        }
+        const followed_user = await databaseServices.users.findOne({ _id: new ObjectId(value) })
+        if (followed_user === null) {
+          throw new Error("Follower user id not found")
+        }
+      }
+    }
+  }
+}, ["body"])
+
+export const unFollowValidation = checkSchema({
+  user_id: {
+    custom: {
+      options: async (value) => {
+        if (!ObjectId.isValid(value)) {
+          throw new Error("UnFollower user id not found")
+        }
+        const followed_user = await databaseServices.users.findOne({ _id: new ObjectId(value) })
+        if (followed_user === null) {
+          throw new Error("UnFollower user id not found")
+        }
+      }
+    }
+  }
+})

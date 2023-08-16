@@ -161,7 +161,19 @@ export const resetPasswordController = async (req: Request, res: Response) => {
     })
   }
 }
-
+export const changePasswordController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload
+    const { oldPassword, newPassword } = req.body;
+    const result = await userServices.changePassword(userId, oldPassword, newPassword);
+    return res.status(result.status).json(result)
+  } catch (error) {
+    return res.status(400).json({
+      message: "Change password failed",
+      status: 400,
+    })
+  }
+}
 export const getInfoController = async (req: Request, res: Response) => {
   try {
     const { userId } = req.decoded_authorization as JwtPayload;
@@ -172,21 +184,58 @@ export const getInfoController = async (req: Request, res: Response) => {
       data,
     });
   } catch (error) {
-    return res.status(404).json({
+    return res.status(400).json({
       message: "Get infomation user failed!",
-      status: 404,
+      status: 400,
     })
   }
 }
 export const updateInfoController = async (req: Request, res: Response) => {
-  const {userId} = req.decoded_authorization as JwtPayload;
-  console.log("🚀 ~ file: users.controller.ts:183 ~ updateInfoController ~ user_id:", userId)
-  const body = req.body;
-  const result = await userServices.updateInfo(userId, body);
-  return res.json({
-    message: "Update successfully!",
-    status: 200,
-    result
-  });
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload;
+    console.log("🚀 ~ file: users.controller.ts:183 ~ updateInfoController ~ user_id:", userId)
+    const body = req.body;
+    const result = await userServices.updateInfo(userId, body);
+    return res.json({
+      message: "Update successfully!",
+      status: 200,
+      result
+    });
+  } catch (error) {
+    return res.status(400).json({
+      message: "Update user failed!",
+      status: 400,
+    })
+  }
+
+}
+
+
+export const followController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload;
+    const { followed_user_id } = req.body;
+    const result = await userServices.follow(userId, followed_user_id);
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({
+      message: "Follow failed!",
+      status: 400,
+    })
+  }
+}
+export const unFollowController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.decoded_authorization as JwtPayload;
+    const { user_id: unFollow_user_id } = req.params;
+
+    const result = await userServices.unFollow(userId, unFollow_user_id)
+    return res.status(result.status).json(result)
+  } catch (error) {
+    return res.status(404).json({
+      message: "User id not found!",
+      status: 404,
+    })
+  }
 
 }

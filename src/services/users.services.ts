@@ -1,11 +1,12 @@
 import User, { UpdateInfo, UserVerifyStatus } from "~/models/schemas/users.schemas"
 import databaseServices from "./database.services"
 import { signToken } from "~/utils/jwt"
-import { TokenType } from "~/constants/enums"
-import { hassPassword } from "~/utils/bcrypt"
+import ErrorWithStatus, { TokenType } from "~/constants/commonType"
+import { checkPassword, hassPassword } from "~/utils/bcrypt"
 import RefreshToken from "~/models/schemas/token.schemas"
 import { ObjectId } from "mongodb"
 import bcrypt from "bcrypt";
+import Follower from "~/models/schemas/follower.schema"
 
 export default class UserServices {
   private signAccessToken(userId: string, verify: UserVerifyStatus) {
@@ -183,6 +184,34 @@ export default class UserServices {
       }
     })
   }
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) })
+    if (!user) {
+      return {
+        message: "User doest not exits!",
+        status: 404
+      }
+    }
+    const isMatchPassword = checkPassword(oldPassword, user.password);
+    if (!isMatchPassword) {
+
+      return {
+        message: "Incorrect old password!",
+        status: 400
+      }
+    }
+    await databaseServices.users.updateOne({ _id: new ObjectId(userId) }, {
+      $set: {
+        password: hassPassword(newPassword),
+        updated_at: new Date(),
+      }
+    })
+    return {
+      message: "Change password success!",
+      status: 200
+    }
+  }
+  
   async getInfo(userId: string) {
     const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) }, {
       projection: {
@@ -203,5 +232,43 @@ export default class UserServices {
       }
     })
     return user;
+  }
+  async follow(user_id: string, followed_user_id: string) {
+    const follower = await databaseServices.followers.findOne({ user_id: new ObjectId(user_id), followed_user_id: new ObjectId(followed_user_id) });
+    if (!follower) {
+      await databaseServices.followers.insertOne(new Follower({ user_id: new ObjectId(user_id), followed_user_id: new ObjectId(followed_user_id) }))
+      return {
+        message: "Follow success!",
+        status: 200,
+      }
+    }
+    return {
+      message: "User id already followed!",
+      status: 400,
+    }
+  }
+  async unFollow(user_id: string, followed_user_id: string) {
+
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(followed_user_id) })
+    if (!user) {
+      return {
+        message: "User id not found!",
+        status: 404,
+      }
+    }
+    const followQuery = { user_id: new ObjectId(user_id), followed_user_id: new ObjectId(followed_user_id) }
+    const follower = await databaseServices.followers.findOne(followQuery);
+
+    if (!follower) {
+      return {
+        message: "You haven't followed this user",
+        status: 200,
+      }
+    }
+    await databaseServices.followers.deleteOne(followQuery)
+    return {
+      message: "Unfollow user success!",
+      status: 200,
+    }
   }
 }
