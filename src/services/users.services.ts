@@ -1,12 +1,13 @@
 import User, { UpdateInfo, UserVerifyStatus } from "~/models/schemas/users.schemas"
 import databaseServices from "./database.services"
 import { signToken } from "~/utils/jwt"
-import ErrorWithStatus, { TokenType } from "~/constants/commonType"
+import { TokenType } from "~/constants/commonType"
 import { checkPassword, hassPassword } from "~/utils/bcrypt"
 import RefreshToken from "~/models/schemas/token.schemas"
 import { ObjectId } from "mongodb"
 import bcrypt from "bcrypt";
 import Follower from "~/models/schemas/follower.schema"
+import axios from "axios"
 
 export default class UserServices {
   private signAccessToken(userId: string, verify: UserVerifyStatus) {
@@ -65,6 +66,46 @@ export default class UserServices {
     })
   }
 
+  private async getOauthGoogleToken(code: string) {
+    const body = {
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      grant_type: "authorization_code"
+    }
+    const data = await axios.post("https://oauth2.googleapis.com/token", body, {
+      headers: {
+        "Content-Type": 'application/x-www-form-urlencoded' // google require this header 
+      }
+    })
+    return data
+  }
+
+  private async getGoogleUserInfo(access_token: string, id_token: string) {
+    const { data } = await axios.get(
+      'https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      params: {
+        access_token,
+        alt: "json"
+      },
+      headers: {
+        Authorization: `Bearer ${id_token}`
+      }
+    }
+    )
+    return data as {
+      id: string,
+      email: string,
+      access_token: string,
+      verified_email: boolean,
+      picture: string,
+      name: string,
+      given_name: string,
+      locale: string,
+      id_token: string,
+    };
+  }
   SignAndRefreshToken(userId: string, verify: UserVerifyStatus) {
     return Promise.all([
       this.signAccessToken(userId, verify),
@@ -135,6 +176,8 @@ export default class UserServices {
       })
     ])
     const [access_token, refresh_token] = token
+    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(userId), create_at: new Date() }))
+
     return {
       access_token,
       refresh_token
@@ -192,6 +235,7 @@ export default class UserServices {
         status: 404
       }
     }
+
     const isMatchPassword = checkPassword(oldPassword, user.password);
     if (!isMatchPassword) {
 
@@ -211,7 +255,7 @@ export default class UserServices {
       status: 200
     }
   }
-  
+
   async getInfo(userId: string) {
     const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) }, {
       projection: {
@@ -271,4 +315,40 @@ export default class UserServices {
       status: 200,
     }
   }
+
+  async oauth(code: string) {
+    const { data } = await this.getOauthGoogleToken(code);
+    const { access_token, id_token } = data;
+    const userInfo = await this.getGoogleUserInfo(access_token, id_token);
+    const { email, verified_email } = userInfo;
+
+    const user = await databaseServices.users.findOne({ email })
+    if (user) { // login with google has email already in database 
+      // Because not get password from userInfo email so no call function Login 
+      const [access_token, refresh_token] = await this.SignAndRefreshToken(user._id.toString(), user.verify)
+      await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user._id), create_at: new Date() }))
+      return {
+        access_token, refresh_token, newUser: false,
+        verify: user.verify
+      }
+    }
+    else {
+      // register with google has email not exits in database
+      const password = Math.random().toString(36).substring(2, 15)
+      const data = await this.register({
+        email: userInfo.email,
+        name: userInfo.name,
+        date_of_birth: new Date(),
+        password,
+      })
+
+      return {
+        ...data, newUser: true,verify:UserVerifyStatus.Unverified
+      }
+    }
+
+
+  }
+
 }
+

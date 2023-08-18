@@ -1,5 +1,5 @@
 import express, { RequestHandler } from "express"
-import { changePasswordController, emailVerifyValidator, followController, forgotPasswordController, getInfoController, loginController, logoutController, registerController, resendVerifyEmailController, resetPasswordController, unFollowController, updateInfoController, verifyForgotPasswordController } from "~/controllers/users.controller";
+import { changePasswordController, emailVerifyValidator, followController, forgotPasswordController, getInfoController, loginController, logoutController, oauthGoogleController, registerController, resendVerifyEmailController, resetPasswordController, unFollowController, updateInfoController, verifyForgotPasswordController } from "~/controllers/users.controller";
 import { filterMiddleware } from "~/middlewares/filter.middlewares";
 import { AccessTokenValidator, EmailVerifyTokenValidator, LoginValidator, RefreshTokenValidator, RegisterValidator, changePasswordvalidator, followValidator, forgotpasswordValidator, resetPasswordValidator, updateInfoValidator, verifiedUserValidator, verifyForgotPasswordValidator } from "~/middlewares/users.middlewares";
 import { UpdateInfo } from "~/models/schemas/users.schemas";
@@ -38,5 +38,7 @@ router.patch('/get-info', validate(AccessTokenValidator), verifiedUserValidator,
 router.post("/follow", validate(AccessTokenValidator), verifiedUserValidator, validate(followValidator), followController)
 
 router.delete("/follow/:user_id", validate(AccessTokenValidator), verifiedUserValidator, unFollowController)
+
+router.get('/oauth/google',oauthGoogleController)
 
 export default router;

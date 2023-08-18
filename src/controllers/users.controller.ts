@@ -1,9 +1,11 @@
+import { config } from "dotenv";
 import { Request, Response, NextFunction, RequestHandler } from "express"
 import { JwtPayload } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { UserVerifyStatus } from "~/models/schemas/users.schemas";
 import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services"
+config();
 
 const userServices = new UserServices();
 
@@ -238,4 +240,25 @@ export const unFollowController = async (req: Request, res: Response, next: Next
     })
   }
 
+}
+
+export const oauthGoogleController = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.query
+    console.log("🚀 ~ file: users.controller.ts:248 ~ oauthGoogleController ~ code:", code)
+    const result = await userServices.oauth(code as string)
+    console.log("🚀 ~ file: users.controller.ts:249 ~ oauthGoogleController ~ result:", result)
+
+    const url = `${process.env.CLIENT_REDIRECT_URI}?access_token=${result.access_token}&refresh_token=${result.refresh_token}&newUser=${result.newUser}`
+
+    console.log("🚀 ~ file: users.controller.ts:252 ~ oauthGoogleController ~ url:", url)
+    return res.redirect(url)
+
+
+  } catch (error) {
+    return res.json({
+      message: "Oauth google failed!",
+      status: 400
+    })
+  }
 }
