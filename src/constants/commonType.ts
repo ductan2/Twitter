@@ -4,7 +4,10 @@ export enum TokenType {
   ForgotPassowrd,
   EmailVerifyToken,
 }
-
+export enum mediaType {
+  Image,
+  Video,
+}
 export enum httpStatus {
   OK = 200,
   CREATED = 201,
@@ -30,4 +33,8 @@ export default class ErrorWithStatus {
 
 export interface FollowBody {
   follow_user_id: string,
+}
+export interface Media {
+  url: string
+  type: mediaType
 }

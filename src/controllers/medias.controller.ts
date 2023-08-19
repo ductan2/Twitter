@@ -1,54 +1,24 @@
-import { RequestHandler, } from "express"
-import { Files } from "formidable";
-import PersistentFile from "formidable/PersistentFile";
-import path from "path";
-import { initFolder, isFileValid } from "~/utils/file";
-const pathUpload = path.resolve('uploads');
+import { Request, RequestHandler, Response, } from "express"
+import MediaServices from "~/services/media.services";
+import { initFolder } from "~/utils/file";
 
+const mediaServices = new MediaServices();
 
-export const uploadImageController: RequestHandler = async (req, res) => {
+export const uploadImageController = async (req: Request, res: Response) => {
   initFolder();
   try {
-    import('formidable').then(({ default: formidable }) => {
-      const form = formidable({
-        uploadDir: pathUpload,
-        keepExtensions: true,
-        multiples: true,
-
-        maxFields: 5,
-        maxFileSize: 2 * 1024 * 1024,
-      });
-      form.parse(req, async (err, fields, files: Files) => {
-
-        if (err) {
-          return res.json({
-            message: "Upload failed!",
-            status: 400,
-          })
-        }
-        if (!files.media) {
-          return res.json({
-            message: "File is empty", status: 400
-          })
-        }
-
-        const isCheckFile = isFileValid(files)
-        if (!isCheckFile) {
-          return res.json({
-            message: "File type is invalid", status: 400
-          })
-        }
-        return res.json({
-          message: "Upload successfully!",
-          status: 200,
-          files
-        })
-      })
-    })
-  } catch (error) {
+    const result = await mediaServices.uploadFile(req)
+    console.log("🚀 ~ file: medias.controller.ts:11 ~ uploadImageController ~ result:", result)
     return res.json({
-      message: "Upload failed!",
-      status: 400,
+      message: "Upload file successfully",
+      status: 200,
+      result
+    })
+  } catch (error: any) {
+    return res.status(error.status).json({
+      message: error.error || error.message,
+      status: error.status,
+
     })
   }
 }

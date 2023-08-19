@@ -245,13 +245,10 @@ export const unFollowController = async (req: Request, res: Response, next: Next
 export const oauthGoogleController = async (req: Request, res: Response) => {
   try {
     const { code } = req.query
-    console.log("🚀 ~ file: users.controller.ts:248 ~ oauthGoogleController ~ code:", code)
     const result = await userServices.oauth(code as string)
-    console.log("🚀 ~ file: users.controller.ts:249 ~ oauthGoogleController ~ result:", result)
 
     const url = `${process.env.CLIENT_REDIRECT_URI}?access_token=${result.access_token}&refresh_token=${result.refresh_token}&newUser=${result.newUser}`
 
-    console.log("🚀 ~ file: users.controller.ts:252 ~ oauthGoogleController ~ url:", url)
     return res.redirect(url)
 
 
