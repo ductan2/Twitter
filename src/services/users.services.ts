@@ -154,12 +154,25 @@ export default class UserServices {
     }
   }
   async logout(refresh_token: string) {
+    console.log("🚀 ~ file: users.services.ts:157 ~ UserServices ~ logout ~ refresh_token:", refresh_token)
     const result = await databaseServices.refreshToken.deleteOne({ token: refresh_token })
+    console.log("🚀 ~ file: users.services.ts:159 ~ UserServices ~ logout ~ result:", result)
     return {
       message: "Logout successfully!",
       status: 200,
     }
 
+  }
+  async refreshToken(userId: string, refresh_token: string) {
+    const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) })
+    const [new_access_token, new_refresh_token] = await Promise.all([
+      this.signAccessToken(userId, user?.verify),
+      this.signRefreshToken(userId, user?.verify),
+      databaseServices.refreshToken.deleteOne({ token: refresh_token })
+    ])
+    return {
+      new_access_token, new_refresh_token
+    }
   }
   async verifyEmail(userId: string) {
 
@@ -343,7 +356,7 @@ export default class UserServices {
       })
 
       return {
-        ...data, newUser: true,verify:UserVerifyStatus.Unverified
+        ...data, newUser: true, verify: UserVerifyStatus.Unverified
       }
     }
 

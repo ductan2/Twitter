@@ -1,5 +1,5 @@
-import express, { RequestHandler } from "express"
-import { changePasswordController, emailVerifyValidator, followController, forgotPasswordController, getInfoController, loginController, logoutController, oauthGoogleController, registerController, resendVerifyEmailController, resetPasswordController, unFollowController, updateInfoController, verifyForgotPasswordController } from "~/controllers/users.controller";
+import express from "express"
+import { changePasswordController, emailVerifyValidator, followController, forgotPasswordController, getInfoController, loginController, logoutController, oauthGoogleController, refreshTokenController, registerController, resendVerifyEmailController, resetPasswordController, unFollowController, updateInfoController, verifyForgotPasswordController } from "~/controllers/users.controller";
 import { filterMiddleware } from "~/middlewares/filter.middlewares";
 import { AccessTokenValidator, EmailVerifyTokenValidator, LoginValidator, RefreshTokenValidator, RegisterValidator, changePasswordvalidator, followValidator, forgotpasswordValidator, resetPasswordValidator, updateInfoValidator, verifiedUserValidator, verifyForgotPasswordValidator } from "~/middlewares/users.middlewares";
 import { UpdateInfo } from "~/models/schemas/users.schemas";
@@ -17,6 +17,8 @@ router.post('/register', validate(RegisterValidator), registerController)
 
 router.post("/logout", validate(AccessTokenValidator), validate(RefreshTokenValidator), logoutController)
 
+router.post("/refresh-token", validate(RefreshTokenValidator), refreshTokenController)
+
 router.post("/verify-email", validate(EmailVerifyTokenValidator), emailVerifyValidator)
 
 router.post("/resend-email-verify", validate(AccessTokenValidator), resendVerifyEmailController as any)
@@ -27,7 +29,7 @@ router.post('/verify-forgot-password', validate(verifyForgotPasswordValidator), 
 
 router.post('/reset-password', validate(resetPasswordValidator), resetPasswordController)
 
-router.put('/change-password',validate(AccessTokenValidator),verifiedUserValidator,validate(changePasswordvalidator),changePasswordController)
+router.put('/change-password', validate(AccessTokenValidator), verifiedUserValidator, validate(changePasswordvalidator), changePasswordController)
 
 router.get('/get-info', validate(AccessTokenValidator), getInfoController)
 
@@ -39,6 +41,6 @@ router.post("/follow", validate(AccessTokenValidator), verifiedUserValidator, va
 
 router.delete("/follow/:user_id", validate(AccessTokenValidator), verifiedUserValidator, unFollowController)
 
-router.get('/oauth/google',oauthGoogleController)
+router.get('/oauth/google', oauthGoogleController)
 
 export default router;

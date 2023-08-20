@@ -135,7 +135,7 @@ export const AccessTokenValidator = checkSchema({
       }
     }
   }
-}, ["headers"])
+})
 
 export const RefreshTokenValidator = checkSchema({
   refresh_token: {
@@ -146,12 +146,12 @@ export const RefreshTokenValidator = checkSchema({
       options: async (value: string, { req }) => {
         const [decoded_refresh_token, isCheckRefreshToken] = await Promise.all([
           verifyToken({ token: value }),
-          databaseServices.refreshToken.findOne({ token: value, create_at: new Date() })
+          databaseServices.refreshToken.findOne({ token: value})
         ])
         if (isCheckRefreshToken === null) {
           throw new Error("RefreshToken user does not exits!")
         }
-
+        
         req.decoded_refresh_token = decoded_refresh_token
         return true;
       }

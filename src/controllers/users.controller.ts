@@ -55,6 +55,7 @@ export const loginController: RequestHandler = async (req, res) => {
 
 export const logoutController: RequestHandler = async (req, res) => {
   const { refresh_token } = req.body
+  console.log("🚀 ~ file: users.controller.ts:58 ~ constlogoutController:RequestHandler= ~ refresh_token:", refresh_token)
   try {
     const result = await userServices.logout(refresh_token)
     return res.status(200).json({
@@ -68,10 +69,27 @@ export const logoutController: RequestHandler = async (req, res) => {
       error
     })
   }
-
-
 }
 
+export const refreshTokenController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.decoded_refresh_token as JwtPayload
+    const { refresh_token } = req.body
+    console.log("🚀 ~ file: users.controller.ts:80 ~ refreshTokenController ~ refresh_token:", refresh_token)
+    const result = await userServices.refreshToken(userId, refresh_token)
+    return res.status(200).json({
+      message: "Refresh token successfully!",
+      status: 200,
+      result
+    })
+  } catch (error) {
+    return res.status(400).json({
+      message: "Refresh token failed!",
+      status: 400,
+      error
+    })
+  }
+}
 export const emailVerifyValidator: RequestHandler = async (req, res) => {
 
   try {

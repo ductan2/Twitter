@@ -4,8 +4,9 @@ import { JwtPayload } from 'jsonwebtoken';
 
 declare module 'express' {
   interface Request {
-    decoded_authorization?: JwtPayload; // Kiểu dữ liệu của decoded_authorization
-    user?: User,
-    decoded_forgot_passowd_token?:JwtPayload
+    decoded_authorization?: JwtPayload// Kiểu dữ liệu của decoded_authorization
+    user?: User
+    decoded_forgot_passowd_token?: JwtPayload
+    decoded_refresh_token?: JwtPayload
   }
 }
