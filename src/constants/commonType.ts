@@ -1,3 +1,6 @@
+import { ObjectId } from "mongodb"
+import { TweetAudience, TweetType } from "~/models/schemas/tweets.chema"
+
 export enum TokenType {
   AccessToken,
   RefreshToken,
@@ -8,16 +11,7 @@ export enum mediaType {
   Image,
   Video,
 }
-export enum httpStatus {
-  OK = 200,
-  CREATED = 201,
-  ACCEPTED = 202,
-  NO_CONTENT = 204,
-  UNPROCESSABLE_ENTITY = 422,
-  UNAUTHORIZED = 401,
-  NOT_FOUND = 404,
-  INTERNAL_SERVER_ERROR = 500
-}
+
 interface ErrorWithStatusType {
   message: string,
   status: number
@@ -31,10 +25,27 @@ export default class ErrorWithStatus {
   }
 }
 
+export interface TweetRequestBody {
+  type: TweetType
+  audience: TweetAudience
+  content: string
+  parent_id: null | string
+  hashtags: string[]
+  mentions: string[]
+  medias: Media[]
+}
+
 export interface FollowBody {
   follow_user_id: string,
 }
 export interface Media {
   url: string
   type: mediaType
+}
+export interface VideoStatusType {
+  _id?: ObjectId
+  name: string
+  url: string
+  created_at?: Date
+  updated_at?: Date
 }

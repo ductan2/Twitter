@@ -12,11 +12,14 @@ export const signToken = ({ payload, privatekey = process.env.JWT_SECRET as stri
     if (options && options.expiresIn) {
       // Tính toán thời gian hết hạn từ thời gian hiện tại
       const now = Math.floor(Date.now() / 1000);
-    
-      const expiresIn = now + Number(options.expiresIn);
 
-      // Thêm thuộc tính 'exp' vào payload
-      payload = { ...payload as object, exp: expiresIn };
+      const expiresIn = now + Number(options.expiresIn);
+      let tempExp;
+      if (typeof payload === 'object') {
+        const { exp }: any = payload;
+        tempExp = exp;
+      }
+      payload = { ...payload as object, exp: tempExp || expiresIn };
     }
     jwt.sign(payload, privatekey, (err: any, token: any) => {
       if (err) throw reject(err);

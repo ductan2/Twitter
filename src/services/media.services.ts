@@ -8,7 +8,10 @@ import { isProduction } from '~/constants/config';
 import { config } from 'dotenv';
 import { Media, mediaType } from '~/constants/commonType';
 import { File, Files } from 'formidable';
+import databaseServices from './database.services';
+import VideoStatus from '~/models/schemas/videoStatus.schema';
 config();
+
 
 export default class MediaServices {
   async uploadImage(req: Request) {
@@ -31,12 +34,20 @@ export default class MediaServices {
   async uploadVideo(req: Request) {
     const files = await handleUploadVideo(req) as any;
     const result: Media[] = files.map((file: File) => {
+      const urlVideo = isProduction ? `${process.env.HOST}/static/video/${file.newFilename}`
+        : `http://localhost:${process.env.PORT}/static/video/${file.newFilename}`
+      databaseServices.videoStatus.insertOne(
+        new VideoStatus({ name: file.newFilename, url: urlVideo })
+      )
       return {
-        url: isProduction ? `${process.env.HOST}/static/video/${file.newFilename}`
-          : `http://localhost:${process.env.PORT}/static/video/${file.newFilename}`,
+        url: urlVideo,
         type: mediaType.Video
       }
     })
     return result
+  }
+  async getVideo(name: string) {
+    const video =await databaseServices.videoStatus.findOne({ name })
+    return video 
   }
 }

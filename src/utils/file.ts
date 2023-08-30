@@ -3,7 +3,6 @@ import { Fields, File, Files, Part } from "formidable";
 import fs from "fs"
 import { Request } from 'express';
 import { UPLOAD_IMAGE_TEMP_DIR, UPLOAD_VIDEO_DIR, UPLOAD_VIDEO_TEMP_DIR } from "~/constants/dir";
-import path from "path";
 
 
 

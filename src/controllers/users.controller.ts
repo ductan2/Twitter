@@ -2,7 +2,6 @@ import { config } from "dotenv";
 import { Request, Response, NextFunction, RequestHandler } from "express"
 import { JwtPayload } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
-import { UserVerifyStatus } from "~/models/schemas/users.schemas";
 import databaseServices from "~/services/database.services";
 import UserServices from "~/services/users.services"
 config();
@@ -73,10 +72,11 @@ export const logoutController: RequestHandler = async (req, res) => {
 
 export const refreshTokenController = async (req: Request, res: Response) => {
   try {
-    const { userId } = req.decoded_refresh_token as JwtPayload
+    const { userId, exp } = req.decoded_refresh_token as JwtPayload
+    console.log("🚀 ~ file: users.controller.ts:76 ~ refreshTokenController ~ exp:", exp)
     const { refresh_token } = req.body
     console.log("🚀 ~ file: users.controller.ts:80 ~ refreshTokenController ~ refresh_token:", refresh_token)
-    const result = await userServices.refreshToken(userId, refresh_token)
+    const result = await userServices.refreshToken(userId, refresh_token,exp as number)
     return res.status(200).json({
       message: "Refresh token successfully!",
       status: 200,
@@ -147,6 +147,7 @@ export const resendVerifyEmailController = async (req: Request, res: Response) =
     })
   }
 }
+
 export const forgotPasswordController: RequestHandler = async (req, res) => {
   try {
     const { email } = req.body;
@@ -230,7 +231,6 @@ export const updateInfoController = async (req: Request, res: Response) => {
 
 }
 
-
 export const followController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.decoded_authorization as JwtPayload;
@@ -277,3 +277,4 @@ export const oauthGoogleController = async (req: Request, res: Response) => {
     })
   }
 }
+

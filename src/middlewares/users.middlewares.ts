@@ -109,7 +109,7 @@ export const RegisterValidator = checkSchema({
         const userServices = new UserServices();
         const result = await userServices.checkEmailExits(value);
         if (result) {
-          throw new Error("Email is invalid!")
+          throw new Error("Email is already exits!")
         }
       })
     }

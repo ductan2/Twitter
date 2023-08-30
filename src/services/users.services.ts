@@ -16,7 +16,7 @@ export default class UserServices {
       payload: {
         userId,
         tokenType: TokenType.AccessToken,
-        verify
+        verify,
       },
       options: {
         expiresIn: process.env.EXPRESIN_ACCESS_TOKEN,
@@ -24,7 +24,21 @@ export default class UserServices {
       }
     })
   }
-  private signRefreshToken(userId: string, verify: UserVerifyStatus) {
+  private signRefreshToken(userId: string, verify: UserVerifyStatus, exp?: number) {
+    if (exp) {
+      return signToken({
+        payload: {
+          userId,
+          tokenType: TokenType.RefreshToken,
+          verify,
+          exp
+        },
+        options: {
+          expiresIn: process.env.EXPRESIN_REFRESH_TOKEN,
+          algorithm: "RS256"
+        }
+      })
+    }
     return signToken({
       payload: {
         userId,
@@ -123,12 +137,15 @@ export default class UserServices {
       ...payload,
       _id: user_id,
       email_verify_token,
+      username: "User_" + payload.email.split("@")[0],
       date_of_birth: new Date(payload.date_of_birth),
       password: hassPassword(payload.password)
     }))
 
     const [access_token, refresh_token] = await this.SignAndRefreshToken(user_id.toString(), UserVerifyStatus.Unverified)
+
     console.log("email verify token", email_verify_token)
+
     await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user_id), create_at: new Date() }))
     return {
       access_token,
@@ -154,7 +171,6 @@ export default class UserServices {
     }
   }
   async logout(refresh_token: string) {
-    console.log("🚀 ~ file: users.services.ts:157 ~ UserServices ~ logout ~ refresh_token:", refresh_token)
     const result = await databaseServices.refreshToken.deleteOne({ token: refresh_token })
     console.log("🚀 ~ file: users.services.ts:159 ~ UserServices ~ logout ~ result:", result)
     return {
@@ -163,13 +179,14 @@ export default class UserServices {
     }
 
   }
-  async refreshToken(userId: string, refresh_token: string) {
+  async refreshToken(userId: string, refresh_token: string, exp: number) {
     const user = await databaseServices.users.findOne({ _id: new ObjectId(userId) })
     const [new_access_token, new_refresh_token] = await Promise.all([
       this.signAccessToken(userId, user?.verify),
-      this.signRefreshToken(userId, user?.verify),
+      this.signRefreshToken(userId, user?.verify, exp),
       databaseServices.refreshToken.deleteOne({ token: refresh_token })
     ])
+    await databaseServices.refreshToken.insertOne(new RefreshToken({ token: new_refresh_token, user_id: new ObjectId(userId), create_at: new Date(), exp: exp }))
     return {
       new_access_token, new_refresh_token
     }
@@ -328,7 +345,6 @@ export default class UserServices {
       status: 200,
     }
   }
-
   async oauth(code: string) {
     const { data } = await this.getOauthGoogleToken(code);
     const { access_token, id_token } = data;
@@ -339,6 +355,7 @@ export default class UserServices {
     if (user) { // login with google has email already in database 
       // Because not get password from userInfo email so no call function Login 
       const [access_token, refresh_token] = await this.SignAndRefreshToken(user._id.toString(), user.verify)
+
       await databaseServices.refreshToken.insertOne(new RefreshToken({ token: refresh_token, user_id: new ObjectId(user._id), create_at: new Date() }))
       return {
         access_token, refresh_token, newUser: false,
