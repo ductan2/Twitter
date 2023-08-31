@@ -1,6 +1,9 @@
 import { Collection, Db, MongoClient } from "mongodb";
 import dotenv from "dotenv"
 import { VideoStatusType } from "~/constants/commonType";
+import Tweet, { TweetConstructor, TweetType } from "~/models/schemas/tweets.chema";
+import Hashtags from "~/models/schemas/hashtags.schema";
+import { BookMark } from "~/models/schemas/bookmark.chema";
 dotenv.config()
 
 const url = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.hdfborf.mongodb.net/`;
@@ -34,18 +37,18 @@ class DatabaseServices {
   }
   async indexRefreshToken() {
     const exits = await this.refreshToken.indexExists(["token_1", "exp_1"])
-    if(!exits){
+    if (!exits) {
 
       this.refreshToken.createIndex({ token: 1 })
       this.refreshToken.createIndex({ exp: 1 }, { expireAfterSeconds: 0 })
     }
-    
-    
-    
+
+
+
   }
   async indexFollower() {
     const exits = await this.refreshToken.indexExists(["user_id_1_followed_user_id_1"])
-    if (!exits){
+    if (!exits) {
       this.followers.createIndex({ user_id: 1, followed_user_id: 1 })
     }
   }
@@ -61,6 +64,15 @@ class DatabaseServices {
   }
   get videoStatus(): Collection<VideoStatusType> {
     return this.db.collection('video_status')
+  }
+  get tweets(): Collection<Tweet> {
+    return this.db.collection('tweets')
+  }
+  get hashtags(): Collection<Hashtags> {
+    return this.db.collection('hashtags')
+  }
+  get bookmark(): Collection<BookMark> {
+    return this.db.collection('bookmark')
   }
   // get followers():Collection<Follower> {
   //   return this.db.collection("followers")

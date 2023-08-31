@@ -12,36 +12,36 @@ export enum TweetAudience {
   TwitterCircle,
 }
 
-interface TweetConstructor {
+export interface TweetConstructor {
   _id?: ObjectId;
   user_id: ObjectId;
   type: TweetType;
   audience: TweetAudience;
   content: string;
   parent_id: null | ObjectId;
-  hashtags: ObjectId[] | string[];
-  mentions: ObjectId[];
+  hashtags: ObjectId[];
+  mentions: string[];
   medias: Media[];
-  guest_views: number;
-  user_views: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  guest_views?: number;
+  user_views?: number;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export default class Tweet {
-  _id: ObjectId;
+  _id?: ObjectId;
   user_id: ObjectId;
   type: TweetType;
   audience: TweetAudience;
   content: string;
   parent_id: null | ObjectId;
-  hashtags: ObjectId[] | string[];
-  mentions: ObjectId[];
+  hashtags: ObjectId[];
+  mentions: string[];
   medias: Media[];
-  guest_views: number;
-  user_views: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  guest_views?: number;
+  user_views?: number;
+  created_at?: Date;
+  updated_at?: Date;
   constructor(tweet: TweetConstructor) {
     const date = new Date();
     this._id = tweet._id || new ObjectId();
@@ -49,13 +49,13 @@ export default class Tweet {
     this.type = tweet.type;
     this.audience = tweet.audience;
     this.content = tweet.content;
-    this.parent_id = tweet.parent_id;
+    this.parent_id = tweet.parent_id ? new ObjectId(tweet.parent_id) : null;
     this.hashtags = tweet.hashtags;
-    this.mentions = tweet.mentions;
+    this.mentions = tweet.mentions
     this.medias = tweet.medias;
     this.guest_views = tweet.guest_views || 0;
     this.user_views = tweet.user_views || 0;
-    this.createdAt = tweet.createdAt || date;
-    this.updatedAt = tweet.updatedAt || date;
+    this.created_at = tweet.created_at || date;
+    this.updated_at = tweet.updated_at || date;
   }
 }
